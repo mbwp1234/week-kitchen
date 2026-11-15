@@ -7,7 +7,7 @@ the page's settings are plain JSON files in `data_dir`, so anything that can wri
 ## Setup
 
 1. **Settings → System → Storage → Add network storage**: usage *Share*, name `recipes`.
-   It appears at `/share/recipes`. Any folder under `/share` works; set `data_dir` to match.
+   It appears at `/share/recipes`. A *Media* mount works too, at `/media/<name>`; set `data_dir` to match.
 2. Install and start the app, then open **Kitchen** in the sidebar.
 
 ## Data folder
