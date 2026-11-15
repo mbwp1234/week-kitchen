@@ -1,3 +1,6 @@
+## 0.2.1
+- Read the Supervisor token from s6's container environment too, so timer pushes and the tonight sensor switch on.
+
 ## 0.2.0
 - Phone-first: tonight's recipe leads, the week is a swipeable strip, tabs fit one row; cook mode puts the timer and heat above the fold.
 - "We made this" on every recipe (undoable), so suggestions and "Made N days ago" stay true without finishing cook mode.
