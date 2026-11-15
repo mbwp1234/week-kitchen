@@ -25,7 +25,10 @@
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px calc(48px + var(--tray-h))}
-.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+/* minmax(0,1fr), not 1fr: a 1fr track grows to its widest unbreakable content (a nowrap line, a long word)
+   and drags the whole page wider than the phone. */
+.wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.top>*,.head>*,.titlewrap>*{min-width:0}
 button{font:inherit;color:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--flame);outline-offset:2px}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
@@ -303,6 +306,12 @@ svg *{transform-box:fill-box}
  .day .n{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .day .d{font-size:11px}
  /* cook mode: what you need with wet hands goes first; the cartoon goes */
+ /* timers: one slim row each, soonest first, so three of them don't bury the recipe */
+ .tray{gap:6px;padding-top:6px}
+ .tmr{width:100%;gap:8px;padding:4px 4px 4px 14px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+ .tmr .l{flex:1;min-width:0;max-width:none;font-size:13px}
+ .tmr .c{font-size:17px}
+ .tmr button{white-space:nowrap;padding:7px 10px}
  .cm .anim{display:none}
  .cm-h{margin:4px 0 10px}
  .bigtimer.ph{display:flex;margin:0 0 14px;width:100%}.bigtimer.wd{display:none}
@@ -831,7 +840,7 @@ async function timerCall(method,url,body){try{const r=await fetch(url,{method,he
 function addTimer(label,sec,key){if(!PUSH&&!actx)unlockAudio();timerCall("POST","api/timers",{label,sec,key});
   if(!PUSH)toast("Timer set. Keep this screen open.")}
 function drawTray(){
-  $("#tray").innerHTML=TIMERS.map(t=>{const left=(t.end-serverNow())/1000,rg=ringing(t);
+  $("#tray").innerHTML=[...TIMERS].sort((a,b)=>a.end-b.end).map(t=>{const left=(t.end-serverNow())/1000,rg=ringing(t);
     return`<div class="tmr ${rg?"ring":""}"><span class="l">${esc(t.label)}</span><span class="c">${rg?"Done":fmt(left)}</span>
     ${rg?"":`<button data-add="${t.id}">+1 min</button>`}<button data-del="${t.id}">${rg?"OK":"Cancel"}</button></div>`}).join("");
   document.documentElement.style.setProperty("--tray-h",(TIMERS.length?$("#tray").offsetHeight:0)+"px");
