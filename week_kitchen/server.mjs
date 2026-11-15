@@ -33,8 +33,15 @@ const MAX_BODY = 256 * 1024;
 
 // Home Assistant API (homeassistant_api: true gives the app SUPERVISOR_TOKEN). Optional:
 // without it timers still ring on the page, there is just no push and no sensor.
-const HA_API = process.env.HA_API || (process.env.SUPERVISOR_TOKEN ? "http://supervisor/core/api" : "");
-const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || "";
+// The base image's s6 /init can start CMD without the container environment, so the token
+// is also read from where s6 keeps it.
+function supervisorToken() {
+  if (process.env.SUPERVISOR_TOKEN) return process.env.SUPERVISOR_TOKEN;
+  try { return readFileSync("/run/s6/container_environment/SUPERVISOR_TOKEN", "utf8").trim(); } catch { return ""; }
+}
+const SUP_TOKEN = process.env.HA_API ? "" : supervisorToken();
+const HA_API = process.env.HA_API || (SUP_TOKEN ? "http://supervisor/core/api" : "");
+const HA_TOKEN = process.env.HA_TOKEN || SUP_TOKEN;
 // timer_notify entries: "notify_service" (always) or "who=notify_service" (only timers that
 // person started; who is matched against the HA user's login name, display name or id).
 const TIMER_NOTIFY = (process.env.TIMER_NOTIFY ? process.env.TIMER_NOTIFY.split(",") : OPT.timer_notify || [])
