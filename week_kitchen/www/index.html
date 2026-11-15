@@ -281,6 +281,35 @@ svg *{transform-box:fill-box}
 @keyframes confetti{to{transform:translateY(110vh) rotate(720deg)}}
 @keyframes popin{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:reduce){[class*="a-"]{animation:none!important;opacity:1!important}.confetti{display:none}}
+/* ---------- 0.2: phone-first daily use ---------- */
+.views .sm{display:none}
+.made[aria-pressed="true"]{border-color:var(--kid);color:var(--kid);background:var(--kid-soft)}
+.bigtimer.on{background:var(--flame);color:#fff}
+.bigtimer.ph{display:none}
+.syncnote{color:var(--muted);font-size:13px}
+@media (max-width:760px){
+ body{padding-top:12px}
+ .wrap{gap:14px}
+ .mascot{width:46px}.top h1{font-size:26px}.top-l{gap:8px;min-width:0}.top-l>div{min-width:0}
+ #weekLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+ .views{flex-wrap:nowrap;gap:2px;padding-bottom:8px}
+ .views button{flex:1;padding:8px 4px;font-size:15px;white-space:nowrap}
+ .views .lg{display:none}.views .sm{display:inline}
+ /* the week becomes a strip you swipe, so tonight's recipe is the first thing on screen */
+ .rail{display:flex;overflow-x:auto;gap:8px;margin-inline:-16px;padding:2px 16px 6px;scroll-snap-type:x proximity;scrollbar-width:none}
+ .rail::-webkit-scrollbar{display:none}
+ .day{flex:0 0 128px;scroll-snap-align:start;padding:8px 10px;grid-template-columns:minmax(0,1fr);gap:2px;border-radius:12px}
+ .day .thumb,.day .m{display:none}
+ .day .n{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .day .d{font-size:11px}
+ /* cook mode: what you need with wet hands goes first; the cartoon goes */
+ .cm .anim{display:none}
+ .cm-h{margin:4px 0 10px}
+ .bigtimer.ph{display:flex;margin:0 0 14px;width:100%}.bigtimer.wd{display:none}
+ .gauge{grid-template-columns:96px minmax(0,1fr);justify-items:start;align-items:center;column-gap:14px;row-gap:2px;padding:10px 14px}
+ .gauge svg{grid-row:1 / span 2;max-width:96px}
+ .gauge .lv{font-size:19px;align-self:end}.gauge .hint{text-align:left;align-self:start}
+}
 .dish-svg [transform]{transform-box:view-box}
 </style>
 
@@ -293,14 +322,11 @@ svg *{transform-box:fill-box}
         <h1><span id="titleMain" class="tm-main">Week </span><span id="titleAccent">Kitchen</span></h1>
       </div>
     </div>
-    <div class="tools">
-      <button class="pill" id="wakeBtn" aria-pressed="false">Keep screen on</button>
-    </div>
   </header>
-  <nav class="views" aria-label="Sections"><button data-view="cook">This week</button><button data-view="library">Recipe box</button><button data-view="plan">Plan a week</button><button data-view="shop">Shopping list</button></nav>
+  <nav class="views" aria-label="Sections"><button data-view="cook"><span class="lg">This week</span><span class="sm">Tonight</span></button><button data-view="library"><span class="lg">Recipe box</span><span class="sm">Recipes</span></button><button data-view="plan"><span class="lg">Plan a week</span><span class="sm">Plan</span></button><button data-view="shop"><span class="lg">Shopping list</span><span class="sm">Shop</span></button></nav>
   <nav class="rail" id="rail" aria-label="Recipes this week"></nav>
   <main id="main"></main>
-  <p class="foot">Checkmarks and your place in each recipe are saved in this browser only.</p>
+  <p class="foot">Your place in a recipe is saved on this device. The plan, shopping list and timers are shared.</p>
 </div>
 <div class="tray" id="tray" aria-live="polite"></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -355,6 +381,17 @@ const HEART='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.
 function loveBtn(id){const on=!!(LIB[id]&&LIB[id].loved);
   return`<button class="love" data-love="${esc(id)}" aria-pressed="${on}" aria-label="${on?"Loved":"Love this recipe"}" ${DB?"":"disabled"}>${HEART}<span>${on?"Loved":"Love"}</span></button>`}
 
+/* Marking a recipe made is one tap from the recipe page, not only by finishing every step in
+   cook mode: "Pick one for me" and "Made 3 days ago" are only as good as this date. The tap
+   is undoable for the session (madeUndo keeps the date it replaced). */
+const madeUndo={};
+function madeBtn(id){const on=!!(LIB[id]&&LIB[id].lastCooked===todayISO());
+  return`<button class="love made" data-made="${esc(id)}" aria-pressed="${on}" ${DB?"":"disabled"}>${on?"✓ Made today":"We made this"}</button>`}
+async function setMade(id,on){if(!DB||!LIB[id])return;const prev=LIB[id].lastCooked||null;
+  let next;if(on){if(prev!==todayISO())madeUndo[id]=prev;next=todayISO()}
+  else{if(!(id in madeUndo)){toast("Already marked as made today");return}next=madeUndo[id];delete madeUndo[id]}
+  LIB[id]={...LIB[id],lastCooked:next||undefined};buildWeek();render();
+  try{await DB.doc("recipes/"+id).update({lastCooked:next})}catch(x){LIB[id]={...LIB[id],lastCooked:prev||undefined};buildWeek();render();toast("Couldn't save. Check your connection.")}}
 function renderNav(){const v=view();
   document.querySelectorAll(".views button").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v));
   $("#weekLabel").textContent=(WEEKDOC&&WEEKDOC.label?WEEKDOC.label:"Your week")+(SET.tagline?" · "+SET.tagline:"");}
@@ -365,6 +402,8 @@ function renderRail(){
     <span class="thumb">${dish(r)}</span><span class="d"><span>${esc(r.day)}${r.date?" · "+esc(r.date):""}</span>${r.id===td?'<span class="today">Tonight</span>':""}</span>
     <span class="n">${esc(r.short)}</span><span class="m">${esc(r.time)}</span>
     <span class="bar"><i style="width:${progress(r)*100}%"></i></span></button>`).join("");
+  const rail=$("#rail"),on=rail.querySelector('[aria-current="true"]');
+  if(on&&rail.scrollWidth>rail.clientWidth)rail.scrollLeft=Math.max(0,on.offsetLeft-rail.offsetLeft-16);
 }
 function emptyState(title,body,cta){return`<section class="empty"><div class="anim" style="margin:0 auto">${scene("cool")}</div><h2>${title}</h2><p>${body}</p>${cta||""}</section>`}
 function renderCook(){
@@ -376,7 +415,7 @@ function renderCook(){
   $("#main").innerHTML=`<section class="recipe">
    <div class="head"><div class="titlewrap"><div class="hero-dish">${dish(r)}</div><div><div class="eyebrow">${r.day==="Box"?"From the recipe box":r.day==="Any"?"Batch cook":esc(r.day)+" · "+esc(r.date)}</div><h2>${esc(r.name)}</h2>
      <div class="facts"><span>Serves <b>${r.serves}</b></span><span>Total <b>${esc(r.time)}</b></span><span>${esc(r.gear)}</span><span>${ago(r.lastCooked)}</span></div></div></div>
-     <div class="head-actions">${loveBtn(r.id)}<button class="cook" id="startCook">${done.length?"Resume cooking":"Start cooking"} <span aria-hidden="true">→</span></button></div></div>
+     <div class="head-actions">${loveBtn(r.id)}${madeBtn(r.id)}<button class="cook" id="startCook">${done.length?"Resume cooking":"Start cooking"} <span aria-hidden="true">→</span></button></div></div>
    <div style="display:grid;gap:14px;min-width:0">
     <div class="card"><h3>Gather <small>${checked.length}/${r.ing.length}</small></h3>
      <ul class="ing">${r.ing.map((x,i)=>`<li><label><input type="checkbox" id="ing-${esc(r.id)}-${i}" data-i="${i}" ${checked.includes(i)?"checked":""}><span>${esc(x)}</span></label></li>`).join("")}</ul></div>
@@ -419,7 +458,7 @@ function renderLibrary(){
 /* ---------- plan a week: drag recipes onto days ----------
    The planner edits the current week directly and saves on every change.
    Mouse: drag. Touch: press and hold a card, then drag. Or tap a card, then tap a day. */
-let plan=null,armed=null,planSave=null,confirmNew=false;
+let plan=null,armed=null,planSave=null,confirmNew=false,planPending=false,planSeq=0,weekChain=Promise.resolve();
 function planFromWeek(){
   const start=WEEKDOC&&WEEKDOC.start?WEEKDOC.start:todayISO();
   const days=Array(7).fill(null),batch=[];
@@ -436,13 +475,15 @@ function savePlan(){
   plan.days.forEach((id,i)=>{if(id&&LIB[id]){const d=dayDate(i);nights.push({recipe:id,day:DAYS[d.getDay()],date:MON[d.getMonth()]+" "+d.getDate(),iso:isoOf(d)})}});
   plan.batch.forEach(id=>{if(LIB[id])nights.push({recipe:id,day:"Any",date:"Batch",iso:null})});
   const doc={label:weekLabel(plan.start),start:plan.start,nights,saved:new Date().toISOString()};
-  WEEKDOC=doc;buildWeek();
+  WEEKDOC=doc;buildWeek();planPending=true;const my=++planSeq;
   const st=$("#planStatus");if(st)st.textContent="Saving…";
   clearTimeout(planSave);
-  planSave=setTimeout(async()=>{if(!DB){const s=$("#planStatus");if(s)s.textContent="Not saved: the recipe folder is unavailable";return}
-    try{await DB.doc("week/current").set(doc);const s=$("#planStatus");if(s)s.textContent="Saved"}
-    catch(e){const s=$("#planStatus");if(s)s.textContent="Didn't save. Check your connection."}},400);
-}
+  planSave=setTimeout(()=>{weekChain=weekChain.then(async()=>{const say=t=>{const s=$("#planStatus");if(s)s.textContent=t};
+    if(!DB){say("Not saved: the recipe folder is unavailable");planPending=false;return}
+    try{await DB.doc("week/current").set(WEEKDOC);say("Saved")}
+    catch(e){if(e.status===409){planPending=false;plan=null;armed=null;await DB.pull();toast("The plan changed on another device. Showing the latest; make your change again.")}
+      else say("Didn't save. Check your connection.")}
+    if(my===planSeq)planPending=false})},400);}
 function place(id,slot,from){
   if(from==="batch")plan.batch.splice(plan.batch.indexOf(id),1);
   else if(from!=null)plan.days[+from]=null;
@@ -556,7 +597,7 @@ const SECTIONS=[
  ["Bread & tortillas",/\b(tortilla|bread|bun|pita|wrap)/],
  ["Canned & dry goods",/\b(can|beans|broth|stock|rice|orzo|pasta|penne|noodle|lentil|flour|oats|tomato)/],
 ];
-const PANTRY=/\b(salt|black pepper|pepper$|oil|spray|cumin|chili powder|thyme|paprika|oregano|red pepper flakes|soy sauce|mayo|vinegar|honey|sugar|cinnamon|garlic powder|onion powder|sriracha|hot sauce|seasoning|curry powder|baking powder|baking soda|vanilla|sesame seed|maple syrup|pickle|ketchup|mustard|syrup)/;
+const PANTRY=/\b(salt|black pepper|^pepper\b|oil|spray|cumin|chili powder|thyme|paprika|oregano|red pepper flakes|soy sauce|mayo|vinegar|honey|sugar|cinnamon|garlic powder|onion powder|sriracha|hot sauce|seasoning|curry powder|baking powder|baking soda|vanilla|sesame seed|maple syrup|pickle|ketchup|mustard|syrup)/;
 const SKIP=/\bwater\b|\(from |leftover/;
 function num(s){s=s.trim();let m=s.match(/^(\d+)?\s*([½¼¾⅓⅔⅛])?/);if(!m||(!m[1]&&!m[2]))return null;return(+(m[1]||0))+(m[2]?FR[m[2]]:0)}
 function fmtNum(n){const w=Math.floor(n),f=n-w;let best="",d=1;for(const[k,v]of Object.entries(FR))if(Math.abs(f-v)<d){d=Math.abs(f-v);best=k}
@@ -570,7 +611,7 @@ function parseIng(raw){
     const w=name.split(" ")[0].toLowerCase();if(UNITS.includes(w)){unit=UNIT1[w]||w;name=name.slice(w.length).trim()}}
   name=name.replace(/^of\s+/,"").replace(/\s+for (the |adult |serving).*$/i,"").trim();name=name.charAt(0).toUpperCase()+name.slice(1);
   const sing=w=>/oes$/.test(w)?w.slice(0,-2):/ies$/.test(w)?w.slice(0,-3)+"y":/(ch|sh|ss|x)es$/.test(w)?w.slice(0,-2):/ss$/.test(w)?w:/s$/.test(w)&&w.length>3?w.slice(0,-1):w;
-  const key=name.toLowerCase().replace(/\b(large|medium|small|raw|plain|unsweetened|low-sodium|burrito-size|long-grain|cold)\b/g,"").replace(/[^a-z0-9 -]/g,"").split(/\s+/).filter(Boolean).map(sing).join(" ");
+  const key=name.toLowerCase().replace(/\b(large|medium|small|raw|plain|full-fat|unsweetened|low-sodium|burrito-size|long-grain|cold)\b/g,"").replace(/[^a-z0-9 -]/g,"").split(/\s+/).filter(Boolean).map(sing).join(" ");
   return{qty,unit,name,key,note};
 }
 function sectionOf(key,name){const t=(key+" "+name).toLowerCase();if(PANTRY.test(t))return"Check the pantry";
@@ -580,68 +621,88 @@ function buildList(ids){
   ids.forEach(id=>{const r=LIB[id];if(!r)return;
     r.ing.forEach(line=>line.split(/\s\+\s|;\s*/).forEach(part=>{if(!part.trim()||SKIP.test(part.toLowerCase()))return;
       const p=parseIng(part);if(!p.key)return;const sec=sectionOf(p.key,p.name);
-      const it=items[p.key]||(items[p.key]={key:p.key,name:p.name,sec,amt:{},loose:false,meals:new Set()});
+      const it=items[p.key]||(items[p.key]={key:p.key,name:p.name,names:new Set(),sec,amt:{},loose:false,meals:new Set()});it.names.add(p.name);
       if(p.qty!=null)it.amt[p.unit]=(it.amt[p.unit]||0)+p.qty;else it.loose=true;
       it.meals.add(r.short||r.name)}))});
-  return Object.values(items);
+  return Object.values(items).map(it=>({...it,name:shopName(it)}));
 }
+/* One display name per merged line: "Full-fat oat milk" + "Plain oat milk" read as "Oat milk";
+   "Large egg" + "Large eggs" with 24 of them read as "Large eggs". */
+function shopName(it){const ns=[...it.names],plural=Object.entries(it.amt).some(([u,q])=>!u&&q>1);
+  if(ns.length<2)return ns[0]||it.name;
+  const base=new Set(ns.map(n=>n.toLowerCase().replace(/s$/,"")));
+  if(base.size===1)return ns.find(n=>/s$/.test(n)===plural)||ns[0];
+  const k=it.key.charAt(0).toUpperCase()+it.key.slice(1);return plural&&!/s$/.test(k)?k+"s":k}
 const PL={cup:"cups",can:"cans",bag:"bags",jar:"jars",head:"heads",bunch:"bunches",pack:"packs"};
 function amountText(it){if(it.sec==="Check the pantry")return"";
   return Object.entries(it.amt).map(([u,q])=>fmtNum(q)+(u?" "+(q>1&&PL[u]?PL[u]:u):"")).join(" + ")}
-let shopSel=null;
-function shopKey(){return"shop:"+((WEEKDOC&&WEEKDOC.start)||"none")}
+/* The list is shared: picks and ticks live in shop.json on the server, sent as one small
+   operation per tap so two phones in two aisles both land. Keyed to the plan's start date. */
+let SHOPDOC=null,clearArm=0;
+const weekKey=()=>(WEEKDOC&&WEEKDOC.start)||"none";
+const mealKey=r=>(r.iso||"any")+":"+r.id;
+function shopState(){const d=SHOPDOC&&SHOPDOC.week===weekKey()?SHOPDOC:{pick:{},checks:[]};return{pick:d.pick||{},checks:new Set(d.checks||[])}}
+function picked(r,st){const k=mealKey(r);return k in st.pick?!!st.pick[k]:(!r.iso||r.iso>=todayISO())}
+async function shopOp(op){
+  const d=SHOPDOC&&SHOPDOC.week===weekKey()?SHOPDOC:{week:weekKey(),pick:{},checks:[]};   // optimistic
+  const c=new Set(d.checks||[]),pk={...(d.pick||{})};
+  if(op.op==="check")op.on?c.add(op.key):c.delete(op.key);else if(op.op==="pick")pk[op.key]=op.on;else if(op.op==="clear")c.clear();
+  SHOPDOC={...d,week:weekKey(),pick:pk,checks:[...c]};renderShop();
+  try{const r=await fetch("api/shop",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...op,week:weekKey()})});
+    if(!r.ok)throw 0;SHOPDOC=(await r.json()).shop;renderShop()}
+  catch(x){toast("Didn't save. Check your connection.");DB&&DB.pull()}}
 function renderShop(){
+  if(view()!=="shop")return;
   if(dbState==="loading"&&!WEEKDOC){$("#main").innerHTML=emptyState("Opening the recipe box…",loadNote||"Loading this week's plan.");return}
   if(!R.length){$("#main").innerHTML=emptyState("Nothing planned yet","Put a few meals on Plan a week, then come back for the list.",'<button class="cook" data-go="plan">Plan a week →</button>');return}
-  const saved=store.get(shopKey(),null),tdy=todayISO();
-  if(!shopSel)shopSel=saved&&saved.sel?saved.sel:R.map((r,i)=>(!r.iso||r.iso>=tdy)?i:-1).filter(i=>i>=0);
-  const checks=new Set(saved&&saved.checks||[]);
-  const ids=[...new Set(shopSel.map(i=>R[i]&&R[i].id).filter(Boolean))];
+  const st=shopState(),checks=st.checks;
+  const ids=[...new Set(R.filter(r=>picked(r,st)).map(r=>r.id))];
   const list=buildList(ids);
   const order=["Produce","Meat & seafood","Dairy & eggs","Bread & tortillas","Canned & dry goods","Frozen","Other","Check the pantry"];
   const groups=order.map(s=>[s,list.filter(i=>i.sec===s).sort((a,b)=>a.name.localeCompare(b.name))]).filter(g=>g[1].length);
   const shopCount=list.filter(i=>i.sec!=="Check the pantry"),got=shopCount.filter(i=>checks.has(i.key)).length;
+  const armedClear=Date.now()-clearArm<3000;
   $("#main").innerHTML=`<section class="shop">
    <div class="phead"><div><div class="eyebrow">Shopping list · ${esc(WEEKDOC&&WEEKDOC.label||"This week")}</div><h2>${got}/${shopCount.length} in the cart</h2></div>
-    <div class="head-actions"><button class="cook" id="copyList">Copy list</button><button class="pill" id="clearChecks">Uncheck all</button></div></div>
+    <div class="head-actions"><button class="cook" id="copyList">Copy list</button><button class="pill" id="clearChecks">${armedClear?"Tap again to uncheck all":"Uncheck all"}</button></div></div>
    <div class="card"><h3>Shop for these meals <small>tap to include or skip</small></h3>
-    <div class="mealpick">${R.map((r,i)=>`<button class="mp" data-mp="${i}" aria-pressed="${shopSel.includes(i)}">
+    <div class="mealpick">${R.map(r=>`<button class="mp" data-mp="${esc(mealKey(r))}" aria-pressed="${picked(r,st)}">
       <span class="mpthumb">${dish(r)}</span><span><b>${esc(r.day)}${r.date&&r.day!=="Any"?" "+esc(r.date):""}</b><br>${esc(r.short||r.name)}</span></button>`).join("")}</div></div>
    ${ids.length?groups.map(([s,items])=>`<div class="card shopgroup ${s==="Check the pantry"?"pantry":""}"><h3>${s}${s==="Check the pantry"?' <small>basics you probably have</small>':""}</h3>
      <ul class="ing">${items.map(it=>`<li><label><input type="checkbox" id="sh-${esc(it.key).replace(/\W+/g,"-")}" data-key="${esc(it.key)}" data-copy="${esc(it.name)}" ${checks.has(it.key)?"checked":""}>
        <span><b class="amt">${esc(amountText(it))}</b> ${esc(it.name)}<em class="for">${esc([...it.meals].join(" · "))}</em></span></label></li>`).join("")}</ul></div>`).join("")
      :`<div class="card"><p class="m">Pick at least one meal above to build the list.</p></div>`}
    <textarea id="copyArea" class="copyarea" readonly aria-label="Shopping list text"></textarea>
-   <p class="foot" id="shopMsg">Tap an item to check it off and copy its name, ready to paste into a store search. Checkmarks are saved on this device.</p></section>`;
+   <p class="foot" id="shopMsg">Tap an item to check it off and copy its name, ready to paste into a store search. The list is shared: everyone sees the same checkmarks.</p></section>`;
   $("#main").dataset.listText=groups.filter(g=>g[0]!=="Check the pantry").map(([s,items])=>s+"\n"+items.filter(i=>!checks.has(i.key)).map(i=>"- "+(amountText(i)?amountText(i)+" ":"")+i.name).join("\n")).join("\n\n")
     +(groups.some(g=>g[0]==="Check the pantry")?"\n\nCheck the pantry\n"+groups.find(g=>g[0]==="Check the pantry")[1].map(i=>"- "+i.name).join("\n"):"");
 }
-let toastT=null;function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},1800)}
-function saveShop(patch){const cur=store.get(shopKey(),{})||{};store.set(shopKey(),{...cur,...patch})}
+let toastT=null;function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},2600)}
 document.addEventListener("click",async e=>{if(view()!=="shop")return;
-  const mp=e.target.closest("[data-mp]");if(mp){const i=+mp.dataset.mp;shopSel=shopSel.includes(i)?shopSel.filter(x=>x!==i):[...shopSel,i].sort((a,b)=>a-b);saveShop({sel:shopSel});renderShop();return}
-  if(e.target.closest("#clearChecks")){saveShop({checks:[]});renderShop();return}
-  const lab=e.target.closest(".shopgroup label");if(lab){e.preventDefault();const inp=lab.querySelector("input"),key=inp.dataset.key;
-    const cur=new Set((store.get(shopKey(),{})||{}).checks||[]),on=!cur.has(key);on?cur.add(key):cur.delete(key);
+  const mp=e.target.closest("[data-mp]");if(mp){shopOp({op:"pick",key:mp.dataset.mp,on:mp.getAttribute("aria-pressed")!=="true"});return}
+  if(e.target.closest("#clearChecks")){if(Date.now()-clearArm<3000){clearArm=0;shopOp({op:"clear"})}else{clearArm=Date.now();renderShop();setTimeout(()=>{if(view()==="shop")renderShop()},3100)}return}
+  const lab=e.target.closest(".shopgroup label");if(lab){e.preventDefault();const inp=lab.querySelector("input"),key=inp.dataset.key,on=!shopState().checks.has(key);
     if(on){let p;try{p=navigator.clipboard.writeText(inp.dataset.copy)}catch(x){p=Promise.reject()}
       p.then(()=>toast("Copied “"+inp.dataset.copy+"”"),()=>toast("Checked off. Copying isn't allowed here."))}
-    saveShop({checks:[...cur]});renderShop();return}
+    shopOp({op:"check",key,on});return}
   if(e.target.closest("#copyList")){const txt=$("#main").dataset.listText||"",msg=$("#shopMsg");
     try{await navigator.clipboard.writeText(txt);msg.textContent="Copied. Paste it into Notes, a text, or your grocery app."}
     catch(x){const ta=$("#copyArea");ta.value=txt;ta.classList.add("show");ta.focus();ta.select();msg.textContent="Copying was blocked here. The list is selected below: press ⌘C (or tap Copy)."}}
 });
 document.addEventListener("change",e=>{if(view()!=="shop"||!e.target.matches("[data-key]"))return;
-  const cur=new Set((store.get(shopKey(),{})||{}).checks||[]);e.target.checked?cur.add(e.target.dataset.key):cur.delete(e.target.dataset.key);
-  saveShop({checks:[...cur]});renderShop()});
+  shopOp({op:"check",key:e.target.dataset.key,on:e.target.checked})});
 
 function renderMain(){const v=view();v==="library"?renderLibrary():v==="plan"?renderPlan():v==="shop"?renderShop():renderCook()}
-function render(){renderNav();renderRail();renderMain()}
+function render(){const a=document.activeElement,id=a&&a.id&&a.matches("input")?a.id:null,pos=id?[a.selectionStart,a.selectionEnd]:null;
+  renderNav();renderRail();renderMain();
+  if(id){const n=document.getElementById(id);if(n){n.focus();try{n.setSelectionRange(pos[0],pos[1])}catch(x){}}}}
 
 document.addEventListener("click",async e=>{
   const nv=e.target.closest("[data-view]");if(nv){location.hash=nv.dataset.view==="cook"?"":nv.dataset.view;if(nv.dataset.view==="cook")render();return}
   const go=e.target.closest("[data-go]");if(go){location.hash=go.dataset.go;return}
   const d=e.target.closest(".day");if(d){location.hash=d.dataset.id;return}
   const op=e.target.closest("[data-open]");if(op){location.hash=op.dataset.open;return}
+  const md=e.target.closest("[data-made]");if(md){const id=md.dataset.made;setMade(id,md.getAttribute("aria-pressed")!=="true");return}
   const lv=e.target.closest("[data-love]");if(lv){const id=lv.dataset.love;if(!DB||!LIB[id])return;
     const on=!LIB[id].loved;LIB[id]={...LIB[id],loved:on};buildWeek();render();
     try{await DB.doc("recipes/"+id).update({loved:on})}catch(x){LIB[id]={...LIB[id],loved:!on};buildWeek();render()}return}
@@ -654,45 +715,52 @@ document.addEventListener("change",e=>{
     c=e.target.checked?[...new Set([...c,i])]:c.filter(x=>x!==i);store.set("ing:"+r.id,c);
     e.target.closest(".card").querySelector("h3 small").textContent=c.length+"/"+r.ing.length}
 });
-addEventListener("hashchange",()=>{closeCook();if(view()==="plan"){plan=null;armed=null;confirmNew=false}if(view()==="shop")shopSel=null;render();scrollTo(0,0)});
+addEventListener("hashchange",()=>{closeCook();if(view()==="plan"){plan=null;armed=null;confirmNew=false}render();scrollTo(0,0)});
 
 /* ---------- data: the app's JSON-file API ----------
    Same small surface the page was written against (collection/doc onSnapshot, set, update).
    The server is polled for a revision fingerprint; a full pull happens only when it moves.
    Writes carry the revision they were based on, and a stale one forces a pull, so a change
    made to the files elsewhere between our last pull and our write is never masked. */
-let SET={},KID="Kid",SCOOP="Pull their portion before seasoning.",DBERR="";
+let SET={},KID="Kid",SCOOP="Pull their portion before seasoning.",DBERR="",WEEKREV=null,CLOCK=0,PUSH=false;
 function applySettings(s){SET=s||{};KID=SET.kid||"Kid";SCOOP=SET.scoop||"Pull their portion before seasoning.";
   const t=SET.title||"Week",a=SET.accent||"Kitchen";document.title=t+" "+a;
   $("#titleMain").textContent=t+" ";$("#titleAccent").textContent=a}
+const serverNow=()=>Date.now()+CLOCK;   // timers end on the server's clock, not this device's
 function KitchenDB(){
   const subs={recipes:[],week:[]};let rev=null,last=null,busy=false;
   const snapR=st=>({docs:Object.entries(st.recipes||{}).map(([id,d])=>({id,data:()=>d})),metadata:{fromCache:false}});
   const snapW=st=>({exists:!!st.week,data:()=>st.week,metadata:{fromCache:false}});
   const fan=(fn)=>{[...subs.recipes,...subs.week].forEach(fn)};
   async function pull(){
-    let st;try{st=await (await fetch("api/state",{cache:"no-store"})).json()}
+    let st;try{const t0=Date.now();st=await (await fetch("api/state",{cache:"no-store"})).json();if(st.now)CLOCK=st.now-Math.round((t0+Date.now())/2)}
     catch(e){DBERR="Can't reach the kitchen app.";fan(s=>s[1]&&s[1](e));return}
     if(!st.ok){DBERR=st.error==="data_dir_missing"?"The data folder "+st.dataDir+" isn't there. Is the network share mounted?":"The recipe folder couldn't be read.";
       rev=null;fan(s=>s[1]&&s[1](new Error(st.error)));return}
-    DBERR="";rev=st.rev;last=st;applySettings(st.settings);
-    subs.recipes.forEach(s=>s[0](snapR(st)));subs.week.forEach(s=>s[0](snapW(st)));
+    DBERR="";rev=st.rev;applySettings(st.settings);
+    SHOPDOC=st.shop||null;TIMERS=st.timers||[];PUSH=!!st.push;drawTray();
+    // A plan being edited here wins until its save lands; then the file is the truth again.
+    if(planPending){st={...st,week:WEEKDOC}}else{WEEKREV=st.weekRev;if(view()==="plan"&&!armed&&!(drag&&drag.active))plan=null}
+    last=st;
+    // Week first: the recipes update re-renders too, and the planner must rebuild from the file's week, not ours.
+    subs.week.forEach(s=>s[0](snapW(st)));subs.recipes.forEach(s=>s[0](snapR(st)));
   }
   async function poll(){
     if(busy||document.hidden||(drag&&drag.active))return;busy=true;
     try{const r=await (await fetch("api/rev",{cache:"no-store"})).json();if(r.rev!==rev||!last)await pull()}catch(e){}
     busy=false}
-  async function write(method,url,data){
-    const r=await fetch(url,{method,headers:{"content-type":"application/json","x-base-rev":rev||""},body:JSON.stringify(data)});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const j=await r.json();if(j.stale)poll();else rev=j.rev}
+  async function write(method,url,data,headers){
+    const r=await fetch(url,{method,headers:{"content-type":"application/json",...(headers||{})},body:JSON.stringify(data)});
+    if(!r.ok){const e=new Error("HTTP "+r.status);e.status=r.status;throw e}
+    return r.json()}
   busy=true;pull().finally(()=>{busy=false});setInterval(poll,4000);document.addEventListener("visibilitychange",poll);
   return{
+    pull:async()=>{busy=true;try{await pull()}finally{busy=false}},
     collection:()=>({onSnapshot(ok,err){subs.recipes.push([ok,err]);if(last)ok(snapR(last))}}),
     doc:p=>({onSnapshot(ok,err){subs.week.push([ok,err]);if(last)ok(snapW(last))},
-      set:data=>write("PUT","api/week",data),
-      update:data=>write("PATCH","api/recipes/"+encodeURIComponent(p.split("/")[1]),data)})};
-}
+      // The week refuses a stale write (409): x-base-week is the week.json revision this plan was built on.
+      set:async data=>{const j=await write("PUT","api/week",data,{"x-base-week":WEEKREV||"-"});WEEKREV=j.weekRev;return j},
+      update:data=>write("PATCH","api/recipes/"+encodeURIComponent(p.split("/")[1]),data)})};}
 
 async function boot(){
   render();
@@ -721,7 +789,7 @@ function gaugeSVG(k){
     :segs.join("")+(lv?`<line x1="110" y1="104" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/><circle cx="110" cy="104" r="9" fill="var(--ink)"/>`:"")}</svg>`;
 }
 function openCook(i){cmIdx=i;$("#cm").hidden=false;document.body.style.overflow="hidden";drawCook();requestWake()}
-function closeCook(){$("#cm").hidden=true;document.body.style.overflow="";render()}
+function closeCook(){$("#cm").hidden=true;document.body.style.overflow="";releaseWake();render()}
 function drawCook(){
   const r=current(),s=r.steps[cmIdx],done=store.get("done:"+r.id,[]),h=s.heat?HEAT[s.heat]:null;
   store.set("at:"+r.id,cmIdx);
@@ -731,46 +799,56 @@ function drawCook(){
      <div class="anim">${scene(kindOf(s),true)}</div>
      <div class="cm-n">STEP ${cmIdx+1} OF ${r.steps.length}</div>
      <h2 class="cm-h">${esc(s.h)}</h2>
+     ${s.t?timerBtn(r,cmIdx,s,"ph"):""}
      ${s.kid?`<div class="note" style="margin-bottom:14px;font-size:17px"><b>${esc(KID)} scoop.</b> ${esc(SCOOP)}</div>`:""}
      <div class="cm-txt">${s.x}</div></div>
      <div class="cm-side"><div class="gauge">${gaugeSVG(s.heat)}<div class="lv" style="color:${h&&h.lv>0?`var(--h${h.lv})`:h&&h.lv<0?"var(--hot)":"var(--muted)"}">${h?h.name:"No heat"}</div><div class="hint">${h?h.hint:"Prep step. Burner can stay off."}</div></div>
-      ${s.t?`<button class="bigtimer" id="cmTimer"><span>Start timer</span><span class="tm">${fmt(s.t)}</span></button>`:""}</div></div>
+      ${s.t?timerBtn(r,cmIdx,s,"wd"):""}</div></div>
    <div class="cm-nav"><button id="cmPrev" ${cmIdx===0?"disabled":""}>← Back</button><button class="next" id="cmNext">${cmIdx===r.steps.length-1?"Finish ✓":"Done, next step →"}</button></div>`;
   $("#cmClose").onclick=closeCook;
   $("#cmPrev").onclick=()=>{if(cmIdx>0){cmIdx--;drawCook()}};
   $("#cmNext").onclick=()=>{const d=new Set(store.get("done:"+r.id,[]));d.add(cmIdx);store.set("done:"+r.id,[...d]);
     if(cmIdx<r.steps.length-1){cmIdx++;drawCook()}else{store.set("at:"+r.id,0);store.set("done:"+r.id,[]);store.set("ing:"+r.id,[]);closeCook();party(r);
-      if(DB&&LIB[r.id])DB.doc("recipes/"+r.id).update({lastCooked:todayISO()}).catch(()=>{})}};
-  const tb=$("#cmTimer");if(tb)tb.onclick=()=>{addTimer(r.short+": "+s.h,s.t);unlockAudio()};
+      if(LIB[r.id]&&LIB[r.id].lastCooked!==todayISO())setMade(r.id,true)}};
+  document.querySelectorAll("#cm .bigtimer").forEach(b=>b.onclick=()=>{unlockAudio();if(!TIMERS.some(t=>t.key===b.dataset.tkey))addTimer(r.short+": "+s.h,s.t,b.dataset.tkey)});
 }
 document.addEventListener("keydown",e=>{if($("#cm").hidden)return;
   if(e.key==="Escape")closeCook();if(e.key==="ArrowRight")$("#cmNext").click();if(e.key==="ArrowLeft"&&cmIdx>0)$("#cmPrev").click()});
 
 /* ---------- timers ---------- */
-let timers=[],tid=0,actx=null,soundOn=true;
+/* Timers are held by the server: they survive a reload, show on every device, and (with
+   timer_notify set) push to the phone of whoever started one, which rings through a lock screen. */
+let TIMERS=[],actx=null,rangLocal=new Set();
 function unlockAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume()}catch(e){}}
-function beep(){if(!soundOn||!actx)return;try{[0,.35,.7].forEach(off=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;o.connect(g);g.connect(actx.destination);
+function beep(){if(!actx)return;try{[0,.35,.7].forEach(off=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;o.connect(g);g.connect(actx.destination);
   const t=actx.currentTime+off;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.3,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.25);o.start(t);o.stop(t+.3)})}catch(e){}}
-function addTimer(label,sec){timers.push({id:++tid,label,end:Date.now()+sec*1000,ring:false});drawTray()}
+const ringing=t=>!!t.rung||serverNow()>=t.end;
+function timerBtn(r,i,s,where){const key=r.id+":"+i,t=TIMERS.find(x=>x.key===key);
+  return`<button class="bigtimer ${where} ${t?"on":""}" data-tkey="${esc(key)}"><span>${t?(ringing(t)?"Timer done":"Timer running"):"Start timer"}</span><span class="tm">${t?(ringing(t)?"0:00":fmt((t.end-serverNow())/1000)):fmt(s.t)}</span></button>`}
+async function timerCall(method,url,body){try{const r=await fetch(url,{method,headers:{"content-type":"application/json"},body:body?JSON.stringify(body):undefined});
+    const j=await r.json();if(j.timers)TIMERS=j.timers;if(!r.ok&&r.status!==404)throw 0}
+  catch(x){toast("Couldn't reach the kitchen app. Timer not changed.")}drawTray();if(!$("#cm").hidden)drawCook()}
+function addTimer(label,sec,key){if(!PUSH&&!actx)unlockAudio();timerCall("POST","api/timers",{label,sec,key});
+  if(!PUSH)toast("Timer set. Keep this screen open.")}
 function drawTray(){
-  $("#tray").innerHTML=timers.map(t=>{const left=(t.end-Date.now())/1000;
-    return`<div class="tmr ${t.ring?"ring":""}"><span class="l">${esc(t.label)}</span><span class="c">${t.ring?"Done":fmt(left)}</span>
-    ${t.ring?"":`<button data-add="${t.id}">+1 min</button>`}<button data-del="${t.id}">${t.ring?"OK":"Cancel"}</button></div>`}).join("");
-  document.documentElement.style.setProperty("--tray-h",(timers.length?$("#tray").offsetHeight:0)+"px");
+  $("#tray").innerHTML=TIMERS.map(t=>{const left=(t.end-serverNow())/1000,rg=ringing(t);
+    return`<div class="tmr ${rg?"ring":""}"><span class="l">${esc(t.label)}</span><span class="c">${rg?"Done":fmt(left)}</span>
+    ${rg?"":`<button data-add="${t.id}">+1 min</button>`}<button data-del="${t.id}">${rg?"OK":"Cancel"}</button></div>`}).join("");
+  document.documentElement.style.setProperty("--tray-h",(TIMERS.length?$("#tray").offsetHeight:0)+"px");
+  document.querySelectorAll("#cm .bigtimer.on").forEach(b=>{const t=TIMERS.find(x=>x.key===b.dataset.tkey);if(!t)return;
+    b.querySelector(".tm").textContent=ringing(t)?"0:00":fmt((t.end-serverNow())/1000);b.firstElementChild.textContent=ringing(t)?"Timer done":"Timer running"});
 }
 $("#tray").addEventListener("click",e=>{const a=e.target.dataset.add,d=e.target.dataset.del;
-  if(a){const t=timers.find(x=>x.id==a);t.end+=60000}if(d)timers=timers.filter(x=>x.id!=d);drawTray()});
-setInterval(()=>{if(!timers.length)return;let ringNow=false;
-  timers.forEach(t=>{if(!t.ring&&Date.now()>=t.end){t.ring=true;ringNow=true}});
-  if(ringNow)beep();if(timers.some(t=>t.ring)&&Date.now()%3000<500)beep();drawTray()},500);
+  if(a)timerCall("POST","api/timers/"+a,{add:60});if(d)timerCall("DELETE","api/timers/"+d)});
+setInterval(()=>{if(!TIMERS.length)return;let ringNow=false;
+  TIMERS.forEach(t=>{if(ringing(t)&&!rangLocal.has(t.id)){rangLocal.add(t.id);ringNow=true}});
+  if(ringNow)beep();if(TIMERS.some(ringing)&&Date.now()%3000<500)beep();drawTray()},500);
 
-/* ---------- screen + sound ---------- */
-let wake=null,wantWake=false;
-async function requestWake(){if(!wantWake)return;try{wake=await navigator.wakeLock.request("screen")}catch(e){}}
-$("#wakeBtn").onclick=async e=>{wantWake=!wantWake;e.currentTarget.setAttribute("aria-pressed",wantWake);
-  if(wantWake)await requestWake();else{try{wake&&wake.release()}catch(x){}wake=null}};
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")requestWake()});
-["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,unlockAudio,{passive:true}));
+/* ---------- screen: kept awake for as long as cook mode is open ---------- */
+let wake=null;
+async function requestWake(){if($("#cm").hidden||wake)return;try{wake=await navigator.wakeLock.request("screen");wake.addEventListener("release",()=>{wake=null})}catch(e){}}
+function releaseWake(){try{wake&&wake.release()}catch(x){}wake=null}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")requestWake()});["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,unlockAudio,{passive:true}));
 
 /* ---------- cute animation library (reusable scenes) ---------- */
 const W="#fff";
