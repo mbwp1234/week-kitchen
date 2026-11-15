@@ -1,3 +1,7 @@
+## 0.2.3
+- Fix: on phones the page was wider than the screen (tabs, title and tagline cut off at the right edge).
+- Timers on phones are slim single rows, soonest first, so several running at once no longer cover the recipe.
+
 ## 0.2.2
 - The heat card no longer shows one recipe's oven note on every recipe: oven hints are generic, and a step can carry its own `hint`.
 
