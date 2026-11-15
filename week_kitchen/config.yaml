@@ -1,5 +1,5 @@
 name: Week Kitchen
-version: "0.2.1"
+version: "0.2.2"
 slug: week_kitchen
 description: Weekly meal plan, recipe box, shopping list and cook mode, kept as JSON files in a folder you choose.
 url: https://github.com/mbwp1234/week-kitchen

@@ -1,3 +1,6 @@
+## 0.2.2
+- The heat card no longer shows one recipe's oven note on every recipe: oven hints are generic, and a step can carry its own `hint`.
+
 ## 0.2.1
 - Read the Supervisor token from s6's container environment too, so timer pushes and the tonight sensor switch on.
 

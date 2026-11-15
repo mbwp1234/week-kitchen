@@ -22,7 +22,7 @@ data_dir/
 ```
 
 A recipe: `name`, `short`, `serves`, `time`, `gear`, `ing[]`, `steps[]` (`h` title, `x` HTML
-text, `heat` H/MH/M/ML/L/OFF/O350/O400/O425, `t` timer seconds, `kid` true for the "scoop a
+text, `heat` H/MH/M/ML/L/OFF/O350/O400/O425, `hint` (optional line under the heat gauge, for this step only), `t` timer seconds, `kid` true for the "scoop a
 portion" step), plus optional `kid` (note), `warn`, `leftovers`, `art`, `loved`, `lastCooked`.
 
 The page may only change `loved` and `lastCooked` on a recipe, and may rewrite `week.json`.
