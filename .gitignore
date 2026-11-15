@@ -1,0 +1,7 @@
+# Personal data never lives here. It lives in the app's data_dir.
+data/
+recipes/
+week.json
+settings.json
+*.local.*
+.DS_Store
