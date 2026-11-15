@@ -26,6 +26,8 @@ check("shopping list no longer kept in localStorage", !page.includes("store.get(
 check("timers are server-held", page.includes('timerCall("POST","api/timers"') && !/let timers=\[\]/.test(page));
 check("wake lock is not behind a toggle", !page.includes("wantWake") && page.includes("releaseWake()"));
 check("a pull applies the week before the recipes (else a refused plan rebuilds from itself)", page.indexOf("subs.week.forEach(s=>s[0](snapW(st)))") >= 0 && page.indexOf("subs.week.forEach(s=>s[0](snapW(st)))") < page.indexOf("subs.recipes.forEach(s=>s[0](snapR(st)))"));
+check("oven hints name no particular food (they show on every recipe)", !/hint:"[^"]*(tots|sausage|eggs)/.test(page));
+check("a step's own hint wins over the heat level's", page.includes("s.hint||(h?h.hint"));
 check("recipe page can mark a recipe made", page.includes("madeBtn(r.id)") && page.includes("data-made"));
 // The shopping-list parser, run for real on lines like the ones that went wrong.
 { const a = page.indexOf("const FR="), b = page.indexOf("\nlet SHOPDOC");

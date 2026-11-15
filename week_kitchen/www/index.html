@@ -340,14 +340,14 @@ const HEAT={
   ML:{lv:2,name:"Medium-low",hint:"Garlic in oil, or a covered simmer."},
   L:{lv:1,name:"Low",hint:"Gentle simmer: a few lazy bubbles, never a rolling boil."},
   OFF:{lv:0,name:"Heat off",hint:"Burner off. Residual heat finishes the job."},
-  O425:{lv:-1,name:"Oven 425°F",hint:"Hot oven for crisping tots and browning sausage."},
-  O350:{lv:-1,name:"Oven 350°F",hint:"Moderate oven so the eggs set without going rubbery."},
+  O425:{lv:-1,name:"Oven 425°F",hint:"Hot oven: browns and crisps."},
+  O350:{lv:-1,name:"Oven 350°F",hint:"Moderate oven for gentle, even cooking."},
   O400:{lv:-1,name:"Oven 400°F",hint:"Hot oven for browning without burning."}
 };
 /* Recipes and the week plan live as JSON files in the data folder (see server.mjs):
    recipes/<id>.json  name, short, serves, time, gear, ing[], kid, warn?, leftovers, steps[], loved, lastCooked, added
    week.json  label, start (YYYY-MM-DD), nights[{recipe, day, date, iso}]
-   Step fields: h (title), x (instructions), heat (H MH M ML L OFF O425 O350 or null), t (timer seconds),
+   Step fields: h (title), x (instructions), heat (H MH M ML L OFF O425 O350 or null), hint (this step's own line under the heat gauge), t (timer seconds),
    kid:true for the scoop step, a (animation override: sizzle simmer boil stir chop whisk sprinkle oven pour thaw cool baby serve). */
 let LIB={},WEEKDOC=null,R=[],DB=null,dbState="loading",loadNote="";
 const VIEWS=["library","plan","shop"];
@@ -802,7 +802,7 @@ function drawCook(){
      ${s.t?timerBtn(r,cmIdx,s,"ph"):""}
      ${s.kid?`<div class="note" style="margin-bottom:14px;font-size:17px"><b>${esc(KID)} scoop.</b> ${esc(SCOOP)}</div>`:""}
      <div class="cm-txt">${s.x}</div></div>
-     <div class="cm-side"><div class="gauge">${gaugeSVG(s.heat)}<div class="lv" style="color:${h&&h.lv>0?`var(--h${h.lv})`:h&&h.lv<0?"var(--hot)":"var(--muted)"}">${h?h.name:"No heat"}</div><div class="hint">${h?h.hint:"Prep step. Burner can stay off."}</div></div>
+     <div class="cm-side"><div class="gauge">${gaugeSVG(s.heat)}<div class="lv" style="color:${h&&h.lv>0?`var(--h${h.lv})`:h&&h.lv<0?"var(--hot)":"var(--muted)"}">${h?h.name:"No heat"}</div><div class="hint">${esc(s.hint||(h?h.hint:"Prep step. Burner can stay off."))}</div></div>
       ${s.t?timerBtn(r,cmIdx,s,"wd"):""}</div></div>
    <div class="cm-nav"><button id="cmPrev" ${cmIdx===0?"disabled":""}>← Back</button><button class="next" id="cmNext">${cmIdx===r.steps.length-1?"Finish ✓":"Done, next step →"}</button></div>`;
   $("#cmClose").onclick=closeCook;
