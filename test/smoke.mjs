@@ -15,6 +15,7 @@ function check(label, cond) {
   if (cond) pass++; else { fail++; console.error("FAIL", label); }
 }
 
+check("sidebar panel is not admin-only", /^panel_admin: false$/m.test(fs.readFileSync(path.join(APP, "config.yaml"), "utf8")));
 const page = fs.readFileSync(path.join(APP, "www/index.html"), "utf8");
 check("page wires the file API", page.includes("DB=KitchenDB();"));
 check("page no longer asks for window.claude", !page.includes("window.claude"));

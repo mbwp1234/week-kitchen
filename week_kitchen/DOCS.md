@@ -9,6 +9,7 @@ the page's settings are plain JSON files in `data_dir`, so anything that can wri
 1. **Settings → System → Storage → Add network storage**: usage *Share*, name `recipes`.
    It appears at `/share/recipes`. A *Media* mount works too, at `/media/<name>`; set `data_dir` to match.
 2. Install and start the app, then open **Kitchen** in the sidebar.
+   Every Home Assistant user sees it, admin or not. If someone still doesn't, it may be hidden in their sidebar: long-press the HA title to edit the sidebar.
 
 ## Data folder
 

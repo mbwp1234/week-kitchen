@@ -1,3 +1,6 @@
+## 0.2.4
+- The Kitchen sidebar panel shows for non-admin users too (`panel_admin: false`).
+
 ## 0.2.3
 - Fix: on phones the page was wider than the screen (tabs, title and tagline cut off at the right edge).
 - Timers on phones are slim single rows, soonest first, so several running at once no longer cover the recipe.
