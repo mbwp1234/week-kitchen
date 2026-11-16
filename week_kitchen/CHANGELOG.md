@@ -1,3 +1,10 @@
+## 0.3.0
+- New look shared with the other house apps: one font (Inter), cards drawn as fills instead of outlines, softer dark palette.
+- On phones the tabs move to a bottom bar with icons, and the brand header gives way to each view's own title.
+- Tonight is one card: the dish on top, Start cooking full width, Love and Made it underneath.
+- Recipes show two across on a phone; tap the picture to open.
+- Planned nights are rows on the day, not cards inside it, and long names wrap instead of being cut off.
+
 ## 0.2.4
 - The Kitchen sidebar panel shows for non-admin users too (`panel_admin: false`).
 
